@@ -164,7 +164,6 @@ public class NMSUtils implements me.lojosho.hibiscuscommons.nms.NMSUtils {
         display.add("icon", iconObj);
         display.add("title", GsonComponentSerializer.gson().serializeToTree(title));
         display.add("description", GsonComponentSerializer.gson().serializeToTree(description));
-        display.addProperty("description", "Toast Description");
         display.addProperty("frame", "task");
         display.addProperty("announce_to_chat", false);
         display.addProperty("show_toast", true);

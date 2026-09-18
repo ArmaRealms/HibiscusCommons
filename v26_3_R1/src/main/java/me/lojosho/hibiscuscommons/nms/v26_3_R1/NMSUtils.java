@@ -1,12 +1,14 @@
-package me.lojosho.hibiscuscommons.nms.v1_21_R6;
+package me.lojosho.hibiscuscommons.nms.v26_3_R1;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.mojang.serialization.JsonOps;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelPipeline;
-import me.lojosho.hibiscuscommons.HibiscusCommonsPlugin;
+import io.papermc.paper.datacomponent.DataComponentTypes;
+import io.papermc.paper.datacomponent.item.CustomModelData;
 import me.lojosho.hibiscuscommons.util.FoliaScheduler;
+import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.gson.GsonComponentSerializer;
 import net.minecraft.advancements.Advancement;
@@ -14,19 +16,19 @@ import net.minecraft.advancements.AdvancementHolder;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.Connection;
 import net.minecraft.network.protocol.game.ClientboundUpdateAdvancementsPacket;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.item.alchemy.PotionContents;
 import net.minecraft.world.item.component.DyedItemColor;
-import org.bukkit.*;
-import org.bukkit.craftbukkit.CraftServer;
+import org.bukkit.Color;
+import org.bukkit.Material;
+import org.bukkit.World;
+import org.bukkit.craftbukkit.CraftWorld;
 import org.bukkit.craftbukkit.entity.CraftPlayer;
 import org.bukkit.craftbukkit.inventory.CraftItemStack;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.inventory.meta.components.CustomModelDataComponent;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -36,12 +38,12 @@ public class NMSUtils implements me.lojosho.hibiscuscommons.nms.NMSUtils {
 
     @Override
     public int getNextEntityId(World world) {
-        return net.minecraft.world.entity.Entity.nextEntityId();
+        return ((CraftWorld) world).getHandle().getNextEntityId();
     }
 
     @Override
     public org.bukkit.entity.Entity getEntity(int entityId, World world) {
-        net.minecraft.world.entity.Entity entity = getNMSEntity(entityId);
+        net.minecraft.world.entity.Entity entity = getNMSEntity(entityId, ((CraftWorld) world).getHandle());
         if (entity == null) return null;
         return entity.getBukkitEntity();
     }
@@ -70,16 +72,12 @@ public class NMSUtils implements me.lojosho.hibiscuscommons.nms.NMSUtils {
             );
         }
         nmsStack.set(DataComponents.DYED_COLOR, new DyedItemColor(color.asRGB()));
-        return CraftItemStack.asBukkitCopy(nmsStack);
+        // Cast to ItemInstance: Paper 26.2 made asBukkitCopy(ItemStack) private, only the ItemInstance overload is public
+        return CraftItemStack.asBukkitCopy((net.minecraft.world.item.ItemInstance) nmsStack);
     }
 
-    private net.minecraft.world.entity.Entity getNMSEntity(int entityId) {
-        for (ServerLevel world : ((CraftServer) Bukkit.getServer()).getHandle().getServer().getAllLevels()) {
-            net.minecraft.world.entity.Entity entity = world.getEntity(entityId);
-            if (entity == null) continue;
-            return entity;
-        }
-        return null;
+    private net.minecraft.world.entity.Entity getNMSEntity(int entityId, ServerLevel level) {
+        return level.getEntity(entityId);
     }
 
     @Override
@@ -95,7 +93,7 @@ public class NMSUtils implements me.lojosho.hibiscuscommons.nms.NMSUtils {
     }
 
     public void sendToastAdvancement(Player player, ItemStack icon, Component title, Component description) {
-        final var key = ResourceLocation.fromNamespaceAndPath("hibiscuscommons", UUID.randomUUID().toString());
+        final Identifier key = Identifier.fromNamespaceAndPath("hibiscuscommons", UUID.randomUUID().toString());
 
         JsonObject json = new JsonObject();
 
@@ -111,56 +109,49 @@ public class NMSUtils implements me.lojosho.hibiscuscommons.nms.NMSUtils {
         JsonObject iconObj = new JsonObject();
         iconObj.addProperty("id", icon.getType().getKey().toString());
 
-        if (icon.hasItemMeta()) {
-            ItemMeta meta = icon.getItemMeta();
-            JsonObject components = new JsonObject();
+        JsonObject components = new JsonObject();
+        if (!icon.getEnchantments().isEmpty()) components.addProperty("minecraft:enchantment_glint_override", true);
 
-            if (!meta.getEnchants().isEmpty()) {
-                components.addProperty("minecraft:enchantment_glint_override", true);
+        CustomModelData cmd = icon.getData(DataComponentTypes.CUSTOM_MODEL_DATA);
+        if (cmd != null) {
+            JsonObject cmdJson = new JsonObject();
+
+            List<Float> floats = cmd.floats();
+            if (!floats.isEmpty()) {
+                JsonArray floatsArray = new JsonArray();
+                floats.forEach(floatsArray::add);
+                cmdJson.add("floats", floatsArray);
             }
 
-            if (meta.hasCustomModelData()) {
-                CustomModelDataComponent customModelDataComponent = meta.getCustomModelDataComponent();
-                JsonObject customModelDataComponentJson = new JsonObject();
-
-                List<Float> floats = customModelDataComponent.getFloats();
-                if (!floats.isEmpty()) {
-                    JsonArray floatsArray = new JsonArray();
-                    floats.forEach(floatsArray::add);
-                    customModelDataComponentJson.add("floats", floatsArray);
-                }
-
-                List<Boolean> flags = customModelDataComponent.getFlags();
-                if (!flags.isEmpty()) {
-                    JsonArray flagsArray = new JsonArray();
-                    flags.forEach(flagsArray::add);
-                    customModelDataComponentJson.add("flags", flagsArray);
-                }
-
-                List<String> strings = customModelDataComponent.getStrings();
-                if (!strings.isEmpty()) {
-                    JsonArray stringsArray = new JsonArray();
-                    strings.forEach(stringsArray::add);
-                    customModelDataComponentJson.add("strings", stringsArray);
-                }
-
-                List<Color> colors = customModelDataComponent.getColors();
-                if (!colors.isEmpty()) {
-                    JsonArray colorsArray = new JsonArray();
-                    colors.forEach(color -> colorsArray.add(color.asRGB()));
-                    customModelDataComponentJson.add("colors", colorsArray);
-                }
-
-                components.add("minecraft:custom_model_data", customModelDataComponentJson);
+            List<Boolean> flags = cmd.flags();
+            if (!flags.isEmpty()) {
+                JsonArray flagsArray = new JsonArray();
+                flags.forEach(flagsArray::add);
+                cmdJson.add("flags", flagsArray);
             }
 
-            NamespacedKey itemModel = meta.getItemModel();
-            if (itemModel != null) {
-                components.addProperty("minecraft:item_model", itemModel.toString());
+            List<String> strings = cmd.strings();
+            if (!strings.isEmpty()) {
+                JsonArray stringsArray = new JsonArray();
+                strings.forEach(stringsArray::add);
+                cmdJson.add("strings", stringsArray);
             }
 
-            iconObj.add("components", components);
+            List<Color> colors = cmd.colors();
+            if (!colors.isEmpty()) {
+                JsonArray colorsArray = new JsonArray();
+                colors.forEach(color -> colorsArray.add(color.asRGB()));
+                cmdJson.add("colors", colorsArray);
+            }
+
+            components.add("minecraft:custom_model_data", cmdJson);
         }
+
+        if (icon.isDataOverridden(DataComponentTypes.ITEM_MODEL)) {
+            components.addProperty("minecraft:item_model", icon.getData(DataComponentTypes.ITEM_MODEL).toString());
+        }
+
+        if (!components.isEmpty()) iconObj.add("components", components);
 
         display.add("icon", iconObj);
         display.add("title", GsonComponentSerializer.gson().serializeToTree(title));

@@ -121,15 +121,11 @@ allprojects {
     }
 }
 
+val nmsVersions = listOf(":v1_21_R3", ":v1_21_R4", ":v1_21_R5", ":v1_21_R6", ":v1_21_R7", ":v26_1_R1", ":v26_2_R1", ":v26_3_R1")
+
 dependencies {
     implementation(project(path = ":common"))
-    implementation(project(path = ":v1_21_R3"))
-    implementation(project(path = ":v1_21_R4"))
-    implementation(project(path = ":v1_21_R5"))
-    implementation(project(path = ":v1_21_R6"))
-    implementation(project(path = ":v1_21_R7"))
-    implementation(project(path = ":v26_1_R1"))
-    implementation(project(path = ":v26_2_R1"))
+    nmsVersions.forEach { implementation(project(path = it)) }
 }
 
 java {
@@ -162,13 +158,7 @@ tasks {
     }
 
     shadowJar {
-        dependsOn(":v1_21_R3:build")
-        dependsOn(":v1_21_R4:build")
-        dependsOn(":v1_21_R5:build")
-        dependsOn(":v1_21_R6:build")
-        dependsOn(":v1_21_R7:build")
-        dependsOn(":v26_1_R1:build")
-        dependsOn(":v26_2_R1:build")
+        nmsVersions.forEach { dependsOn("$it:build") }
         mergeServiceFiles()
 
         relocate("org.bstats", "me.lojosho.shaded.bstats")

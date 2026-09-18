@@ -1,8 +1,9 @@
-package me.lojosho.hibiscuscommons.nms.v1_21_R7.packets.wrapper;
+package me.lojosho.hibiscuscommons.nms.v26_3_R1.packets.wrapper;
 
 import me.lojosho.hibiscuscommons.packets.PacketType;
 import me.lojosho.hibiscuscommons.packets.wrapper.PacketWrapper;
 import net.minecraft.network.protocol.game.ClientboundMoveEntityPacket;
+import net.minecraft.network.protocol.game.VecDelta;
 import org.bukkit.Location;
 import org.jetbrains.annotations.NotNull;
 
@@ -30,7 +31,8 @@ public class EntityMoveWrapper implements PacketWrapper {
         short dx = (short) (Math.round(to.getX() * 4096) - Math.round(from.getX() * 4096));
         short dy = (short) (Math.round(to.getY() * 4096) - Math.round(from.getY() * 4096));
         short dz = (short) (Math.round(to.getZ() * 4096) - Math.round(from.getZ() * 4096));
+        VecDelta delta = new VecDelta.Linear(dx, dy, dz);
 
-        return new ClientboundMoveEntityPacket.Pos(entityId, dx, dy, dz, onGround);
+        return new ClientboundMoveEntityPacket.Pos(entityId, delta, onGround);
     }
 }

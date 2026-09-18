@@ -27,9 +27,9 @@ public class EntityMoveWrapper implements PacketWrapper {
 
     @Override
     public Object toNativePacket() {
-        byte dx = (byte) (to.getX() -  from.getX());
-        byte dy = (byte) (to.getY() - from.getY());
-        byte dz = (byte) (to.getZ() - from.getZ());
+        short dx = (short) (Math.round(to.getX() * 4096) - Math.round(from.getX() * 4096));
+        short dy = (short) (Math.round(to.getY() * 4096) - Math.round(from.getY() * 4096));
+        short dz = (short) (Math.round(to.getZ() * 4096) - Math.round(from.getZ() * 4096));
 
         return new ClientboundMoveEntityPacket.Pos(entityId, dx, dy, dz, onGround);
     }
